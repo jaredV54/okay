@@ -26,17 +26,25 @@ def close_connection(exception):
         db.close()
 
 def init_db():
-    """Initialize the database using db.sql schema."""
-    with app.app_context():
-        db = get_db()
-        try:
-            with open('db.sql', 'r') as f:
-                db.executescript(f.read())
-            db.commit()
-        except Exception as e:
-            print(f"Error initializing database: {e}")
-            db.rollback()
-            raise
+    """Initialize the database with the users table."""
+    db = get_db()
+    try:
+        db.executescript('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            first_name TEXT NOT NULL,
+            last_name TEXT NOT NULL,
+            course TEXT NOT NULL,
+            section TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL
+        );
+        ''')
+        db.commit()
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+        db.rollback()
+        raise
 
 def valid_email(email):
     """Validate email format using regex."""
@@ -139,5 +147,6 @@ def add_header(response):
 
 if __name__ == '__main__':
     if not os.path.exists(DATABASE):
-        init_db()
+        with app.app_context():
+            init_db()
     app.run(debug=True)
