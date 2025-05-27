@@ -27,9 +27,8 @@ def close_connection(exception):
 
 def init_db():
     """Initialize the database with the users table."""
-    db = get_db()
-    try:
-        db.executescript('''
+    with sqlite3.connect(DATABASE) as conn:
+        conn.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             first_name TEXT NOT NULL,
@@ -40,11 +39,6 @@ def init_db():
             password_hash TEXT NOT NULL
         );
         ''')
-        db.commit()
-    except Exception as e:
-        print(f"Error initializing database: {e}")
-        db.rollback()
-        raise
 
 def valid_email(email):
     """Validate email format using regex."""
@@ -53,6 +47,18 @@ def valid_email(email):
 def valid_section(section):
     """Validate section is one of the allowed values."""
     return section in ALLOWED_SECTIONS
+
+def get_user_by_email(email):
+    """Retrieve a user by email."""
+    with sqlite3.connect(DATABASE) as conn:
+        conn.row_factory = sqlite3.Row
+        return conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+
+def get_user_by_id(user_id):
+    """Retrieve a user by ID."""
+    with sqlite3.connect(DATABASE) as conn:
+        conn.row_factory = sqlite3.Row
+        return conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
 
 @app.route('/')
 def index():
