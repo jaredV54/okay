@@ -1,29 +1,14 @@
 
 import sqlite3
-from flask import Flask, render_template, request, redirect, url_for, flash, session, g
+from flask import Flask, render_template, request, session, redirect, flash, url_for, get_flashed_messages
 from werkzeug.security import generate_password_hash, check_password_hash
-import re
+from functools import wraps
 import os
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key_here'
+app.secret_key = 'supersecretkey'
 
-DATABASE = 'users.db'
-ALLOWED_SECTIONS = {'2A', '2B', '2C'}
-EMAIL_REGEX = r"[^@]+@[^@]+\.[^@]+"
-
-def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        db = g._database = sqlite3.connect(DATABASE, detect_types=sqlite3.PARSE_DECLTYPES)
-        db.row_factory = sqlite3.Row
-    return db
-
-@app.teardown_appcontext
-def close_connection(exception):
-    db = getattr(g, '_database', None)
-    if db is not None:
-        db.close()
+DATABASE = 'database.db'
 
 def init_db():
     """Initialize the database with the users table."""
@@ -36,72 +21,66 @@ def init_db():
             course TEXT NOT NULL,
             section TEXT NOT NULL,
             email TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL
+            password TEXT NOT NULL
         );
         ''')
-
-def valid_email(email):
-    """Validate email format using regex."""
-    return re.match(EMAIL_REGEX, email)
-
-def valid_section(section):
-    """Validate section is one of the allowed values."""
-    return section in ALLOWED_SECTIONS
 
 def get_user_by_email(email):
     """Retrieve a user by email."""
     with sqlite3.connect(DATABASE) as conn:
-        conn.row_factory = sqlite3.Row
         return conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
 
 def get_user_by_id(user_id):
     """Retrieve a user by ID."""
     with sqlite3.connect(DATABASE) as conn:
-        conn.row_factory = sqlite3.Row
         return conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
 
+@app.after_request
+def add_cache_control(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '-1'
+    return response
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route('/')
-def index():
-    if 'user_id' in session:
-        return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
+def home():
+    return redirect(url_for('dashboard') if 'user_id' in session else 'login')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     if request.method == 'POST':
-        first_name = request.form.get('first_name', '').strip()
-        last_name = request.form.get('last_name', '').strip()
-        course = request.form.get('course', '').strip()
-        section = request.form.get('section', '').strip()
-        email = request.form.get('email', '').strip().lower()
-        password = request.form.get('password', '')
+        data = {key: request.form[key].strip() for key in ['first_name', 'last_name', 'course', 'section', 'email']}
+        password = request.form['password']
 
-        if not all([first_name, last_name, course, section, email, password]):
-            flash('All fields are required.', 'danger')
-        elif not valid_email(email):
-            flash('Invalid email format.', 'danger')
-        elif not valid_section(section):
-            flash(f"Section must be one of {', '.join(ALLOWED_SECTIONS)}.", 'danger')
-        else:
-            db = get_db()
+        for field, value in data.items():
+            if not value:
+                flash('Required!', field)
+        if not password:
+            flash('Required!', 'password')
+        if ('@' not in data['email'] or '.' not in data['email']) and data['email'].strip():
+            flash('Invalid email format!', 'email')
+
+        if not get_flashed_messages(with_categories=True):
             try:
-                user = db.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone()
-                if user:
-                    flash('Email already registered.', 'danger')
-                else:
-                    password_hash = generate_password_hash(password)
-                    db.execute(
-                        'INSERT INTO users (first_name, last_name, course, section, email, password_hash) VALUES (?, ?, ?, ?, ?, ?)',
-                        (first_name, last_name, course, section, email, password_hash)
-                    )
-                    db.commit()
-                    flash('Registration successful! Please log in.', 'success')
-                    return redirect(url_for('login'))
-            except sqlite3.Error as e:
-                db.rollback()
-                flash(f"Database error: {e}", 'danger')
+                with sqlite3.connect(DATABASE) as conn:
+                    conn.execute('''
+                    INSERT INTO users (first_name, last_name, course, section, email, password)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (*data.values(), generate_password_hash(password)))
+                flash('Registration successful!', 'success')
+                return redirect(url_for('login'))
+            except sqlite3.IntegrityError:
+                flash('Email already exists!', 'email')
     return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -109,50 +88,43 @@ def login():
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
-        password = request.form.get('password', '')
-        db = get_db()
-        try:
-            user = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-            if user and check_password_hash(user['password_hash'], password):
-                session['user_id'] = user['id']
+        email = request.form['email'].strip()
+        password = request.form['password']
+
+        if not email:
+            flash('Required!', 'email')
+        elif not password:
+            flash('Required!', 'password')
+        else:
+            user = get_user_by_email(email)
+            if user and check_password_hash(user[6], password):
+                session.update({
+                    'user_id': user[0],
+                    'full_name': f"{user[1]} {user[2]}",
+                    'course': user[3],
+                    'section': user[4],
+                    'email': user[5]
+                })
                 flash('Login successful!', 'success')
                 return redirect(url_for('dashboard'))
-            elif user is None:
-                flash('Email not registered.', 'danger')
             else:
-                flash('Incorrect password.', 'danger')
-        except sqlite3.Error as e:
-            flash(f"Database error: {e}", 'danger')
+                flash('Invalid email or password!', 'email')
     return render_template('login.html')
 
 @app.route('/dashboard')
+@login_required
 def dashboard():
-    if 'user_id' not in session:
-        flash('Please log in to access the dashboard.', 'danger')
-        return redirect(url_for('login'))
-    db = get_db()
-    try:
-        user = db.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
-    except sqlite3.Error as e:
-        flash(f"Database error: {e}", 'danger')
-        user = None
-    return render_template('dashboard.html', user=user)
+    user = get_user_by_id(session['user_id'])
+    return render_template('dashboard.html', user=user, show_nav_bar=True)
 
 @app.route('/logout')
+@login_required
 def logout():
-    session.pop('user_id', None)
-    flash('You have been logged out.', 'success')
+    session.clear()
+    flash("You have been logged out.", "info")
     return redirect(url_for('login'))
-
-@app.after_request
-def add_header(response):
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
-    response.headers['Pragma'] = 'no-cache'
-    return response
 
 if __name__ == '__main__':
     if not os.path.exists(DATABASE):
-        with app.app_context():
-            init_db()
+        init_db()
     app.run(debug=True)
