@@ -1,0 +1,152 @@
+
+html, body {
+    height: 100%;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-image: url('/static/background.jpg');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-attachment: fixed;
+    min-height: 100vh;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #f3eaff; 
+    background-color: #18122B; 
+}
+
+.container {
+    background: rgba(40, 20, 60, 0.97); 
+    max-width: 400px;
+    margin: 60px auto;
+    padding: 32px 42px;
+    border-radius: 14px;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.40);
+    border: 1.5px solid #4e277e;
+}
+
+h2 {
+    margin-bottom: 22px;
+    color: #a259e6; 
+    text-align: center;
+    letter-spacing: 1px;
+    font-weight: 700;
+}
+
+label {
+    display: block;
+    margin-top: 15px;
+    margin-bottom: 5px;
+    color: #e0d7f7; 
+    font-weight: 600;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="text"],
+select {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    border: 1.5px solid #4e277e;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 15px;
+    background: #231942; 
+    color: #f3eaff;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="text"]:focus,
+select:focus {
+    border-color: #a259e6; 
+    outline: none;
+    background: #372554;
+    box-shadow: 0 0 0 2px #a259e655;
+}
+
+input::placeholder {
+    color: #bbaed1;
+    opacity: 1;
+    font-style: italic;
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(90deg, #a259e6 0%, #5f1b6e 100%);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(80, 30, 120, 0.15);
+    transition: background 0.2s, box-shadow 0.2s, outline 0.2s;
+}
+
+button:hover,
+button:focus {
+    background: linear-gradient(90deg, #5f1b6e 0%, #a259e6 100%);
+    box-shadow: 0 4px 16px rgba(162, 89, 230, 0.25);
+    outline: 2px solid #a259e6;
+    outline-offset: 2px;
+}
+
+.flash {
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    font-size: 14px;
+    text-align: center;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.10);
+}
+
+.flash.success {
+    background: #2e1e4d;
+    color: #a3ffb0;
+    border: 1px solid #4caf50;
+}
+
+.flash.danger {
+    background: #3d1a2b;
+    color: #ffb3c6;
+    border: 1px solid #e57373;
+}
+
+a {
+    color: #a259e6;
+    text-decoration: none;
+    transition: color 0.2s;
+    font-weight: 500;
+    outline: none;
+}
+
+a:hover,
+a:focus {
+    text-decoration: underline;
+    color: #fff;
+    outline: 2px solid #a259e6;
+    outline-offset: 2px;
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+}
+
+li {
+    margin-bottom: 8px;
+    font-size: 15px;
+    color: #e0d7f7;
+}
